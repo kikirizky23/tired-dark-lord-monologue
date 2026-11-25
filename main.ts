@@ -35,6 +35,10 @@ const ENTRY_FILENAME = 'entry.txt';
  * whitespace. The monologue holds no hyphens, no dashes standing
  * alone, and no apostrophes, so every way of counting words that
  * splits on whitespace lands on the same number.
+ *
+ * This is only one half of the check. A second, independent count
+ * (see wordCountByLetters) has to agree with it before the entry
+ * is written, so a miscount by one method cannot slip through.
  */
 function wordCount(text: string): number {
   const trimmed = text.trim();
@@ -45,12 +49,38 @@ function wordCount(text: string): number {
 }
 
 /**
+ * Count the words a second, independent way: runs of letters
+ * matched by /[A-Za-z]+/g. It ignores punctuation and digits
+ * entirely, so it agrees with wordCount only when every token is
+ * exactly one word of letters — which is how the monologue is
+ * written. If the two methods disagree, something in the text is
+ * not what a reader would count, and the entry must not be written.
+ */
+function wordCountByLetters(text: string): number {
+  const matches = text.match(/[A-Za-z]+/g);
+  return matches === null ? 0 : matches.length;
+}
+
+/**
  * The monologue must be exactly one hundred words on a single
  * line. Anything else is not the entry the bounty asked for, so
  * refuse to write it instead of handing in the wrong text.
+ *
+ * The word count is cross-checked two independent ways: splitting
+ * on whitespace (wordCount) and counting runs of letters
+ * (wordCountByLetters). Both must land on exactly one hundred;
+ * if they disagree with each other, the text is refused even
+ * when one of them happens to say one hundred.
  */
 function monologueIsGood(): boolean {
   const words = wordCount(MONOLOGUE);
+  const letters = wordCountByLetters(MONOLOGUE);
+  if (words !== letters) {
+    process.stderr.write(
+      `[monologue] word counts disagree: whitespace ${words}, letters ${letters}\n`,
+    );
+    return false;
+  }
   if (words !== WORDS_WANTED) {
     process.stderr.write(`[monologue] ${words} words, wanted ${WORDS_WANTED}\n`);
     return false;
